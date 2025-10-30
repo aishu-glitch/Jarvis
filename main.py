@@ -1,22 +1,49 @@
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationChain
 from langchain_community.llms import Ollama
+from langchain.prompts import PromptTemplate
 import streamlit as st
 
-st.title("Jarvis")
+st.title("Jarvis 🤖")
 
-input_txt=st.text_input("Please enter your queries here...")
+prompt = PromptTemplate(
+    input_variables=["history","input"],
+    template="""
+You are **Jarvis**, an intelligent, polite, confident AI assistant.
+You NEVER call yourself Nova. Always respond as Jarvis.
 
-prompt=ChatPromptTemplate.from_messages(
-    [
-        ("system","you are a helpful AI assistant and your name is Jarvis"),
-        ("user","user query:{query}")
-    ]
+Conversation so far:
+{history}
+
+User: {input}
+Jarvis:
+"""
 )
 
-llm=Ollama(model="llama2")
-output_parser=StrOutputParser()
-chain=prompt|llm|output_parser
+# Input box
+input_txt = st.text_input("Please enter your queries here...")
 
+# Memory to store full chat history
+chat_memory = ConversationBufferMemory(return_messages=False)
+llm = Ollama(model="llama2")
+
+# Conversation chain
+chain = ConversationChain(
+    llm=llm,
+    memory=chat_memory,
+    prompt=prompt,
+    verbose=False
+)
+
+# Session state to display chat like ChatGPT
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+# Generate reply
 if input_txt:
-    st.write(chain.invoke({"query":input_txt}))
+    response = chain.run(input_txt)  # ✅ no index extraction
+    st.session_state["messages"].append({"role":"assistant","content":response})
+
+# Display only Jarvis replies (not user input)
+for msg in st.session_state["messages"]:
+    st.write(msg["content"])
